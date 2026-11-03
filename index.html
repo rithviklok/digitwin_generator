@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DigiTwin-Generator</title>
+  <!-- The top bar's "spark" dot; colours are aos.css's --good (light / dark). -->
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <!-- AirawatOS design tokens; light/dark follows the OS. public/shared/aos.css -- see the note at its top. -->
+  <link rel="stylesheet" href="/shared/aos.css" />
+  <link rel="stylesheet" href="/src/ui/styles.css" />
+</head>
+<body>
+  <canvas id="scene"></canvas>
+
+  <!-- AirawatOS top bar -- present in every mode (viewer AND the chrome pages).
+       Overlays the canvas rather than pushing it down: TwinEngine sizes the
+       renderer and InspectController picks from window.innerWidth/Height, so
+       the canvas must stay full-window. Owned by Topbar.js. -->
+  <header class="topbar" id="topbar">
+    <a class="brand" href="?" title="Back to the default city">
+      <span class="spark"></span><span class="logo">ARF</span>
+    </a>
+    <span class="crumb"><span class="crumb__sep">/</span>DigiTwin-Generator<span id="topbarCity" class="crumb__city" hidden></span></span>
+    <nav class="topnav" aria-label="DigiTwin">
+      <a class="navbtn" href="?upload=1">Upload a city</a>
+      <a class="navbtn" href="?mycities=1">My cities</a>
+    </nav>
+    <span class="topbar__right">
+      <button id="coverageBadge" class="coverage-badge" hidden></button>
+      <!-- Clock first: WeatherController prefixes its text with "· ", which reads as "19:38 · 28°C clear sky". -->
+      <span class="clock" id="clock"></span>
+      <span id="panelWeather" class="weather"></span>
+    </span>
+  </header>
+
+  <div id="loading">
+    <div id="loadingText">Loading</div>
+    <div class="loading-bar-track"><div id="loadingBarFill" class="loading-bar-fill is-indeterminate"></div></div>
+  </div>
+
+  <div id="mapControls">
+    <button class="map-ctrl-btn" id="btnCompass" title="Reset to North" aria-label="Reset view to north">
+      <svg viewBox="0 0 40 40">
+        <g id="compassNeedle">
+          <path class="needle-n" d="M20 6 L24 20 L16 20 Z"/>
+          <path class="needle-s" d="M20 34 L24 20 L16 20 Z"/>
+        </g>
+      </svg>
+    </button>
+    <button class="map-ctrl-btn" id="btnSearch" title="Search" aria-label="Search" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+    </button>
+    <button class="map-ctrl-btn" id="btnZoomIn" title="Zoom in" aria-label="Zoom in">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+    <button class="map-ctrl-btn" id="btnZoomOut" title="Zoom out" aria-label="Zoom out">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"/></svg>
+    </button>
+    <!-- Day / Night: TwinEngine keeps the label and pressed state in step with the scene (it also changes by itself at sunrise and sunset). -->
+    <button class="map-ctrl-btn" id="btnToggleNight" title="Switch to night view" aria-label="Switch to night view" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+    <button class="map-ctrl-btn" id="btnCoverage" title="What’s on this map" aria-label="What’s on this map" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5M12 8h.01"/></svg>
+    </button>
+    <!-- Shown by ShareView.js (not in admin preview or embed mode). -->
+    <button class="map-ctrl-btn" id="btnShare" title="Share or embed this view" aria-label="Share or embed this view" aria-pressed="false" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/></svg>
+    </button>
+    <!-- Shown once per browser, beside the zoom-in button, until the visitor has zoomed in far enough to see buildings -- see ZoomHint.js. -->
+    <div id="zoomHint" class="zoom-hint" role="status" hidden>
+      <span>Zoom in to see the buildings in 3D</span>
+      <button id="btnZoomHintClose" class="zoom-hint__close" type="button" aria-label="Dismiss">&times;</button>
+    </div>
+  </div>
+
+  <!-- ShareView.js: a link to this view + an <iframe> snippet (?embed=1, API in public/EMBED.md). -->
+  <div id="sharePanel" class="share-panel" role="dialog" aria-labelledby="sharePanelTitle" hidden>
+    <div class="coverage-panel__head">
+      <span id="sharePanelTitle">Share this view</span>
+      <button id="btnShareClose" class="coverage-panel__close" aria-label="Close">&times;</button>
+    </div>
+    <div class="share-panel__body">
+      <label class="share-panel__label" for="shareLink">Link</label>
+      <div class="share-panel__row">
+        <input id="shareLink" class="share-panel__field" readonly />
+        <button id="btnCopyLink" type="button" class="share-panel__copy">Copy</button>
+      </div>
+      <label class="share-panel__check"><input type="checkbox" id="shareIncludeView" checked /> Open at the current view</label>
+      <p id="shareAccessNote" class="share-panel__note"></p>
+
+      <label class="share-panel__label" for="shareEmbed">Embed in a website or platform</label>
+      <textarea id="shareEmbed" class="share-panel__field share-panel__code" rows="4" readonly></textarea>
+      <div class="share-panel__row share-panel__row--end">
+        <a class="share-panel__doc" href="/EMBED.md" target="_blank" rel="noopener">Control it from your page ↗</a>
+        <button id="btnCopyEmbed" type="button" class="share-panel__copy">Copy code</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Embed mode only (?embed=1, main.js): the same view in a full tab. -->
+  <a id="embedOpenFull" class="embed-open-full" target="_blank" rel="noopener" hidden>Open full view ↗</a>
+
+  <!-- Only shown on the plain default boot when localStorage has a city/draft to return to -- see WelcomeBackBanner.js. -->
+  <div id="welcomeBackBanner" class="welcome-back-banner" hidden>
+    <span id="welcomeBackText"></span>
+    <div id="welcomeBackActions" class="welcome-back-banner__actions"></div>
+    <button id="btnWelcomeBackClose" class="welcome-back-banner__close" aria-label="Dismiss">&times;</button>
+  </div>
+
+  <!-- Only shown when an admin opens a city from the admin page (?admin=<token>&city=<id>) -- see AdminBar.js. -->
+  <div id="adminBar" class="admin-bar" hidden>
+    <span class="admin-bar__label">Admin view</span>
+    <strong id="adminBarCityName"></strong>
+    <span id="adminBarCityId" class="admin-bar__cityid"></span>
+    <a id="adminBarLogsLink" class="admin-bar__link" target="_blank" rel="noopener">Build log</a>
+    <a id="adminBarListLink" class="admin-bar__link">All cities</a>
+  </div>
+
+  <div id="searchPanel" class="search-panel" hidden>
+    <input type="text" id="searchInput" class="search-input" placeholder="Search buildings, roads, localities…" autocomplete="off" />
+    <div id="searchResults" class="search-results"></div>
+  </div>
+
+  <!-- Filled + unhidden by TwinEngine.boot() only when optional layers fail to load. -->
+  <div class="hint" id="missingHint" hidden></div>
+
+  <!-- "What's on this map": toggled by CoverageView.js (#btnCoverage / #coverageBadge). Reads the currently-loaded CityConfig -- shown over whatever city is on screen, never a full-page navigation. -->
+  <div id="coveragePanel" class="coverage-panel" role="dialog" aria-labelledby="coveragePanelTitle" hidden>
+    <div class="coverage-panel__head">
+      <span id="coveragePanelTitle">What’s on this map</span>
+      <button id="btnCoverageClose" class="coverage-panel__close" aria-label="Close">&times;</button>
+    </div>
+    <div id="coverageBody" class="coverage-panel__body"></div>
+  </div>
+
+  <!-- Click-to-inspect card (InspectController.js fills #inspectBody). -->
+  <div class="inspect" id="inspect" hidden>
+    <button id="btnInspectClose" class="inspect__close" type="button" aria-label="Close">&times;</button>
+    <div id="inspectBody"></div>
+  </div>
+
+  <div id="controlsHint" aria-hidden="true">
+    <span><span class="k">Left-Click + Drag</span>Pan</span>
+    <span class="sep"></span>
+    <span><span class="k">Right-Click + Drag</span>Rotate</span>
+    <span class="sep"></span>
+    <span><span class="k">Scroll</span>Zoom</span>
+  </div>
+
+  <!-- A city that couldn't be opened (main.js): what went wrong in plain words, and ways onward. -->
+  <div id="fatal">
+    <div>
+      <h1 id="fatalTitle"></h1>
+      <p id="fatalBody"></p>
+      <div id="fatalActions" class="app-page__actions"></div>
+    </div>
+  </div>
+
+  <!-- The admin page (?admin=<token>): every uploaded city -- see AdminCitiesView.js. -->
+  <div id="adminCitiesView" class="app-page" hidden>
+    <main class="app-page__card admin-cities">
+      <h1>Uploaded cities</h1>
+      <p id="adminCitiesSummary">A city goes live as soon as its build finishes. Open one to see it as its visitors do, read its build log, or delete it.</p>
+      <div class="admin-cities__filters" id="adminCitiesFilters" role="group" aria-label="Show"></div>
+      <div id="adminCitiesList" class="admin-cities__list"></div>
+      <button id="btnAdminCitiesMore" type="button" class="app-page__btn app-page__btn--ghost" hidden>Show more</button>
+    </main>
+  </div>
+
+  <!-- Admin-only build log viewer (?admin=<token>&city=<id>&logs=1) -- see AdminLogView.js. -->
+  <div id="adminLogView" class="app-page" hidden>
+    <div class="app-page__card admin-log-view">
+      <h1>Build log: <span id="adminLogCityId"></span></h1>
+      <div id="adminLogList"></div>
+      <a id="adminLogBackLink" class="app-page__back-link">← All cities</a>
+    </div>
+  </div>
+
+  <!-- "Chrome" views (CityPickerView/UploadView, main.js): full-page, reached
+       via a real navigation (?mycities=1 / ?upload=1 / ?status=1) rather than
+       floated over a live scene -- see main.js's routing comment. -->
+
+  <!-- AirawatOS "desktop" layout: a tile per city (CityPickerView.js renders the tiles). -->
+  <div id="cityPickerView" class="app-page" hidden>
+    <main class="desk">
+      <div class="hi">My cities</div>
+      <div class="sub">Cities you've uploaded from this browser — click one to open it.</div>
+      <div class="grid" id="cityPickerList"></div>
+      <p id="cityPickerEmpty" class="desk__note" hidden>You haven't uploaded any cities yet from this browser. A city is listed here on the browser it was uploaded from; on any other device, open its Review &amp; build page link.</p>
+    </main>
+  </div>
+
+  <div id="uploadView" class="app-page" hidden>
+    <div class="app-page__card upload-view">
+      <h1 id="uploadTitle">Upload a city</h1>
+      <div id="draftNotice" class="upload-view__draft-notice" hidden>
+        <span id="draftNoticeText"></span>
+        <button id="btnDraftStartOver" type="button" class="upload-view__hint-link">Start over</button>
+      </div>
+      <div class="upload-view__steps">
+        <span class="upload-view__step" data-step="1">1. Name & area</span>
+        <span class="upload-view__step" data-step="2">2. Connect data</span>
+        <span class="upload-view__step" data-step="3">3. Review & build</span>
+      </div>
+
+      <div class="upload-view__panel" data-step-panel="1">
+        <label class="upload-view__field">City name
+          <input type="text" id="uploadDisplayName" placeholder="e.g. Lucknow" />
+        </label>
+        <!-- Place search (UploadView.js, OpenStreetMap Nominatim): flies the map to the place so the area can be drawn there. -->
+        <form class="place-search" id="placeSearch" role="search" autocomplete="off">
+          <input type="search" id="placeSearchInput" placeholder="Find a city or town…" aria-label="Find a city or town" />
+          <button type="submit" class="app-page__btn app-page__btn--ghost">Search</button>
+        </form>
+        <div id="placeSearchResults" class="place-search__results" hidden></div>
+        <div class="upload-view__map-wrap" id="uploadMapWrap">
+          <div id="uploadMap" class="upload-view__map"></div>
+          <button type="button" id="btnDrawArea" class="draw-toggle" aria-pressed="false">▭ Draw area</button>
+        </div>
+        <p class="upload-view__hint">Drag to move the map and scroll to zoom. When the city is in view, press <b>Draw area</b> and drag across it.</p>
+        <div class="upload-view__bbox-fields" id="bboxFields">
+          <label>West <input type="number" step="any" id="bboxWest" /></label>
+          <label>South <input type="number" step="any" id="bboxSouth" /></label>
+          <label>East <input type="number" step="any" id="bboxEast" /></label>
+          <label>North <input type="number" step="any" id="bboxNorth" /></label>
+        </div>
+      </div>
+
+      <div class="upload-view__panel" data-step-panel="2" hidden>
+        <!-- Buildings: downloaded by the server from Google Open Buildings while it builds (the default), or the uploader's own file. UploadView.js shows the file slot only for the second. -->
+        <div class="upload-view__slot">
+          <span class="upload-view__slot-label" id="buildingsLabel">Buildings (3D footprints + height) *</span>
+          <div class="buildings-source" id="buildingsSource" role="radiogroup" aria-labelledby="buildingsLabel">
+            <label class="buildings-source__option">
+              <input type="radio" name="buildingsSource" id="buildingsSourceGoogle" value="google" checked />
+              <span><b>Get them for me from Google Open Buildings</b> <span class="osm-own__tag">recommended</span>
+                <span class="slot-note">When you press <i>Build</i>, the server downloads every building in the area you drew, each with its height. No file needed. Covers India, Africa, South and Southeast Asia, Latin America and the Caribbean.</span></span>
+            </label>
+            <label class="buildings-source__option">
+              <input type="radio" name="buildingsSource" id="buildingsSourceFile" value="file" />
+              <span><b>Upload my own buildings file</b>
+                <span class="slot-note">A municipal survey, or a file from another source.</span></span>
+            </label>
+          </div>
+          <div id="buildingsFileSlot" hidden>
+            <!-- Every file input in the wizard becomes a drop zone that shows the chosen file's name and size (FileDrop.js). -->
+            <input type="file" id="fileBuildings" accept=".geojson,.json" aria-label="Your buildings file" />
+            <span class="upload-view__slot-status" id="statusBuildings"></span>
+            <a class="upload-view__hint-link" href="/DATA_SOURCES.md" target="_blank" rel="noopener">Where do I get this?</a>
+            <!-- A dropdown of the file's own number properties once it has been read; a text box only when they couldn't be (UploadView.js, showHeightChoices). -->
+            <div class="upload-view__field upload-view__field--height">
+              <label for="heightProperty">Which property holds each building’s height? *</label>
+              <select id="heightProperty" disabled><option value="">Attach the buildings file first</option></select>
+              <input type="text" id="heightPropertyText" placeholder="e.g. height, mean" aria-label="The property that holds each building’s height" hidden />
+              <span class="upload-view__field-note">Pick the one that gives the height in metres.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Everything else is optional, one compact row per file (UploadView.js, buildSlots): the municipal layers
+             OpenStreetMap doesn't have, shown; replacements for OpenStreetMap's own layers, folded away. -->
+        <section class="optional-files" aria-labelledby="optionalFilesTitle">
+          <h2 class="optional-files__title" id="optionalFilesTitle">Optional files <span class="osm-own__tag">the city builds fine without them</span></h2>
+          <p class="upload-view__hint">Roads, railways, stations, neighbourhood names, land use, parks and water come from OpenStreetMap when you press <i>Build</i>. Add a file only where you have your own data. <a class="upload-view__hint-link" href="/DATA_SOURCES.md" target="_blank" rel="noopener">Where do I get these?</a></p>
+          <h3 class="optional-files__group">From your municipal corporation</h3>
+          <div id="uploadOptionalSlots" class="file-rows"></div>
+
+          <details class="optional-files__more" id="osmOwnFiles">
+            <summary>Replace an OpenStreetMap layer with your own <span class="osm-own__tag">e.g. a municipal road survey</span></summary>
+            <p class="upload-view__hint">Each file replaces that one layer; the rest still come from OpenStreetMap. GeoJSON in longitude/latitude (WGS 84). <a class="upload-view__hint-link" href="/DATA_SOURCES.md#use-your-own-files-instead-of-openstreetmap" target="_blank" rel="noopener">Formats</a></p>
+            <div id="osmOverrideSlots" class="file-rows"></div>
+
+            <h3 class="optional-files__group">Server can't reach OpenStreetMap?</h3>
+            <p class="upload-view__hint">Get all of it yourself as one file: open the query for your area, press <b>Export → GeoJSON → download</b>, and attach it below. Nothing is downloaded when it's attached. <a class="upload-view__hint-link" href="/DATA_SOURCES.md#if-openstreetmap-cant-be-reached" target="_blank" rel="noopener">Other ways to get it</a></p>
+            <a class="app-page__btn app-page__btn--ghost osm-own__turbo" id="btnOverpassTurbo" href="#" target="_blank" rel="noopener">Open the query for your area in Overpass Turbo ↗</a>
+            <div class="file-rows">
+              <div class="file-row">
+                <div class="file-row__text">
+                  <label class="file-row__label" for="fileOsmExport">OpenStreetMap export</label>
+                  <span class="file-row__note">Every layer in one file.</span>
+                </div>
+                <input type="file" id="fileOsmExport" accept=".geojson,.json" />
+                <span class="upload-view__slot-status file-row__status" id="statusOsmExport"></span>
+              </div>
+            </div>
+          </details>
+        </section>
+      </div>
+
+      <div class="upload-view__panel" data-step-panel="3" hidden>
+        <!-- Filled by UploadView.js: what's about to be built (or, once submitted, what was). -->
+        <dl class="review-summary" id="reviewSummary"></dl>
+        <!-- Collapsed: the defaults suit almost every city. The values in use are always shown in the summary above ("Settings"), so nothing is applied unseen. -->
+        <details class="review-settings" id="reviewSettings">
+          <summary>Advanced settings <span class="osm-own__tag">the defaults suit almost every city</span></summary>
+          <p class="upload-view__hint">How your buildings file is turned into the 3D city.</p>
+          <label class="upload-view__field">Tile size (m) <input type="number" id="tileSizeM" min="250" max="20000" />
+            <span class="upload-view__field-note">The city is cut into squares this wide; each loads its detail as the camera nears it.</span></label>
+          <label class="upload-view__field">Minimum render height (m) <input type="number" step="0.1" id="minRenderHeightM" />
+            <span class="upload-view__field-note">Buildings shorter than this, or with no height in your file, are left out of the 3D city.</span></label>
+          <label class="upload-view__field">Window minimum height (m) <input type="number" id="windowMinHeightM" />
+            <span class="upload-view__field-note">Buildings at least this tall get windows drawn on their walls; shorter ones have plain walls.</span></label>
+        </details>
+        <!-- Live build progress (BuildStatus.js) -- shown once the city is submitted, polled from the server. -->
+        <section class="build-status" id="buildStatus" hidden></section>
+      </div>
+
+      <div id="uploadError" class="upload-view__error" hidden></div>
+
+      <!-- Shown while files are sent to the server (UploadView.js): a city's buildings file can be hundreds of MB. -->
+      <div id="uploadProgress" class="upload-progress" hidden>
+        <div class="upload-progress__row"><span id="uploadProgressText">Uploading…</span><span id="uploadProgressPct"></span></div>
+        <div class="loading-bar-track"><div id="uploadProgressFill" class="loading-bar-fill"></div></div>
+        <p class="upload-progress__note">Keep this page open until the upload finishes. After that you can close it, and the build carries on on the server.</p>
+      </div>
+
+      <div class="upload-view__nav">
+        <button id="btnUploadClose" class="app-page__btn app-page__btn--ghost">Cancel</button>
+        <button id="btnUploadBack" class="app-page__btn app-page__btn--ghost" hidden>Back</button>
+        <button id="btnUploadNext" class="app-page__btn app-page__btn--primary">Next</button>
+        <button id="btnUploadSubmit" class="app-page__btn app-page__btn--primary" hidden>Build my city</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

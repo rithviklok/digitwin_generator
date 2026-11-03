@@ -1,0 +1,474 @@
+{
+  "type": "FeatureCollection",
+  "name": "localities",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "locality/0",
+        "name": "Kanpur Cantonment",
+        "kind": "locality",
+        "source": "osm_place_suburb"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.3650651,
+          26.4487664
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "locality/1",
+        "name": "Naubasta",
+        "kind": "locality",
+        "source": "osm_place_suburb"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.324038,
+          26.4065616
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "locality/2",
+        "name": "Armapur",
+        "kind": "locality",
+        "source": "osm_place_suburb"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.2644825,
+          26.4724554
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "locality/3",
+        "name": "Panki",
+        "kind": "locality",
+        "source": "osm_place_suburb"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.2455997,
+          26.4658862
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "locality/4",
+        "name": "Kidwai Nagar",
+        "kind": "locality",
+        "source": "osm_place_suburb"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.3419876,
+          26.4409888
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "locality/5",
+        "name": "Jajmau",
+        "kind": "locality",
+        "source": "osm_place_town"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.4000046,
+          26.400882
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "locality/6",
+        "name": "Shuklaganj",
+        "kind": "locality",
+        "source": "osm_place_town",
+        "note": "Across the Ganga in Unnao district, not Kanpur Nagar — commonly associated with the city but administratively separate."
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.388953,
+          26.4789045
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "locality/7",
+        "name": "Keshavpuram",
+        "kind": "locality",
+        "source": "osm_addr_suburb",
+        "note": "Coordinate is a specific hotel address within Keshavpuram, used as a proxy point — not a measured area centroid."
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.2688018,
+          26.484248
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "locality/8",
+        "name": "Gandhigram",
+        "kind": "locality",
+        "source": "osm_addr_suburb",
+        "note": "Coordinate is a specific hotel address within Gandhigram, used as a proxy point — not a measured area centroid."
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.3783722,
+          26.4178747
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "locality/9",
+        "name": "Ashok Nagar",
+        "kind": "locality",
+        "source": "nominatim"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.3218056,
+          26.4230418
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "locality/10",
+        "name": "Azad Nagar",
+        "kind": "locality",
+        "source": "nominatim"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.3011114,
+          26.4901445
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "locality/11",
+        "name": "Barra",
+        "kind": "locality",
+        "source": "nominatim"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.3002793,
+          26.4280624
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "locality/12",
+        "name": "Civil Lines",
+        "kind": "locality",
+        "source": "nominatim"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.3465098,
+          26.4760088
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "locality/13",
+        "name": "Darshan Purwa",
+        "kind": "locality",
+        "source": "nominatim"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.314929,
+          26.465483
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "locality/14",
+        "name": "Govind Nagar",
+        "kind": "locality",
+        "source": "nominatim"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.3050772,
+          26.4667102
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "locality/15",
+        "name": "Harjinder Nagar",
+        "kind": "locality",
+        "source": "nominatim"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.392299,
+          26.4161907
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "locality/16",
+        "name": "Harsh Nagar",
+        "kind": "locality",
+        "source": "nominatim"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.3210413,
+          26.4251129
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "locality/17",
+        "name": "Jawahar Nagar",
+        "kind": "locality",
+        "source": "nominatim"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.301291,
+          26.4686973
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "locality/18",
+        "name": "Kalpi Road",
+        "kind": "locality",
+        "source": "nominatim"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.2232885,
+          26.4602236
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "locality/19",
+        "name": "Kalyanpur",
+        "kind": "locality",
+        "source": "nominatim"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.2525656,
+          26.5037242
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "locality/20",
+        "name": "Lajpat Nagar",
+        "kind": "locality",
+        "source": "nominatim"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.3065801,
+          26.464861
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "locality/21",
+        "name": "Lal Bangla",
+        "kind": "locality",
+        "source": "nominatim"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.3895123,
+          26.4212293
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "locality/22",
+        "name": "Mall Road",
+        "kind": "locality",
+        "source": "nominatim"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.3422934,
+          26.4750995
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "locality/23",
+        "name": "Nayaganj",
+        "kind": "locality",
+        "source": "nominatim"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.3594642,
+          26.4641698
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "locality/24",
+        "name": "Ratan Lal Nagar",
+        "kind": "locality",
+        "source": "nominatim"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.290479,
+          26.4441204
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "locality/25",
+        "name": "Shyam Nagar",
+        "kind": "locality",
+        "source": "nominatim"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.2570769,
+          26.500529
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "locality/26",
+        "name": "Shanti Nagar",
+        "kind": "locality",
+        "source": "nominatim"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.3065369,
+          26.4289487
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "locality/27",
+        "name": "Vikas Nagar",
+        "kind": "locality",
+        "source": "nominatim"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.2464473,
+          26.4801007
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "locality/28",
+        "name": "Swaroop Nagar",
+        "kind": "locality",
+        "source": "manual_geocode",
+        "note": "Not found via Nominatim in the batch run — resolved separately via a different geocoding lookup."
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.320613,
+          26.487817
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,813 @@
+/* DigiTwin Generator UI -- AirawatOS design language.
+   Colors come ONLY from the AirawatOS theme tokens defined by
+   /shared/aos.css (--bg --panel --panel2 --line --line2 --ink --dim
+   --accent --good --danger, plus --warn read with a fallback), so the
+   whole chrome follows the OS light/dark setting.
+
+   Deliberately NOT themed: the floating 3D map labels (.label3d). They sit
+   on the scene itself, so they follow the scene's own day/night
+   (body.night-mode, set by PaletteController) -- not the UI theme.
+
+   Every local custom property is prefixed (--dt-*, --label-*) so none can
+   collide with a name aos.css owns. */
+:root {
+  --dt-topbar-h: 44px;
+  --dt-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --dt-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+  --dt-shadow: 0 8px 26px rgba(0, 0, 0, 0.22);
+  --dt-gap: 12px; /* distance of floating cards from the top bar / screen edge */
+
+  /* Scene labels (night defaults; day overrides below) */
+  --label-bg:   rgba(16, 18, 22, 0.90);
+  --label-line: rgba(255, 255, 255, 0.11);
+  --label-ink:  #e8eaed;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+/* The `hidden` attribute must always win. The browser's own [hidden] rule
+   loses to any class that sets `display` (flex, grid…), and an element
+   the code has hidden would show all the same (.app-page__btn and
+   .upload-view__field both did). */
+[hidden] { display: none !important; }
+html, body {
+  width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden;
+  background: var(--bg); color: var(--ink);
+  font: 14px/1.5 var(--dt-sans);
+}
+#scene { width: 100%; height: 100%; display: block; }
+
+/* ===================================================================
+   Top bar (Topbar.js) -- in the style of the AirawatOS desktop shell's.
+   Fixed + overlaying the canvas; every floating card below is offset
+   by --dt-topbar-h instead.
+   =================================================================== */
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 40;
+  height: var(--dt-topbar-h);
+  display: flex; align-items: center; gap: 10px; padding: 0 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel); backdrop-filter: blur(8px);
+  color: var(--ink);
+}
+.brand { display: flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; flex: none; }
+.logo { font-weight: 700; letter-spacing: 0.2px; }
+.logo b { color: var(--accent); }
+.spark {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--good);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--good) 20%, transparent);
+}
+.crumb { color: var(--dim); font-size: 13px; white-space: nowrap; }
+.crumb__sep { margin: 0 8px 0 0; color: var(--line2); }
+.crumb__city { color: var(--ink); font-weight: 600; }
+.crumb__city::before { content: '/'; margin: 0 8px; color: var(--line2); font-weight: 400; }
+.crumb__city[hidden] { display: none; }
+
+.topnav { display: flex; gap: 6px; margin-left: 6px; }
+.navbtn {
+  border: 1px solid var(--line); background: var(--panel2); color: var(--ink);
+  border-radius: 8px; padding: 4px 10px; font-size: 12.5px;
+  text-decoration: none; white-space: nowrap;
+}
+.navbtn:hover { border-color: var(--line2); }
+.navbtn[aria-current="page"] { border-color: var(--accent); color: var(--accent); }
+
+.topbar__right { margin-left: auto; display: flex; align-items: center; gap: 12px; min-width: 0; }
+.weather { color: var(--dim); font-size: 12px; white-space: nowrap; margin-left: -6px; } /* hugs the clock: "19:38 · 28°C" */
+.weather img { width: 16px; height: 16px; vertical-align: -3px; margin: 0 2px 0 4px; }
+.clock { color: var(--dim); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+/* Glanceable "something's missing" pill (CoverageView.js shows/hides it). */
+.coverage-badge {
+  border: 1px solid color-mix(in srgb, var(--warn, #d29922) 45%, transparent);
+  background: color-mix(in srgb, var(--warn, #d29922) 14%, transparent);
+  color: var(--warn, #d29922);
+  border-radius: 999px; padding: 2px 9px; cursor: pointer;
+  font: 600 11px var(--dt-sans); white-space: nowrap;
+}
+.coverage-badge:hover { border-color: var(--warn, #d29922); }
+.coverage-badge[hidden] { display: none; }
+
+@media (max-width: 860px) { .weather { display: none; } }
+@media (max-width: 680px) { .crumb, .clock { display: none; } }
+@media (max-width: 460px) {
+  .logo { display: none; }
+  .topbar { gap: 8px; padding: 0 10px; }
+  .navbtn { padding: 4px 8px; font-size: 12px; }
+}
+
+/* ===================================================================
+   Floating cards over the live scene -- one shared AirawatOS panel look.
+   =================================================================== */
+.hint, .inspect, .search-panel, #controlsHint, .welcome-back-banner,
+.admin-bar, .coverage-panel, .map-ctrl-btn, .zoom-hint {
+  background: var(--panel); border: 1px solid var(--line); color: var(--ink);
+  box-shadow: var(--dt-shadow); backdrop-filter: blur(8px);
+}
+
+/* Missing-optional-layers note (TwinEngine.boot() fills + unhides it). */
+.hint {
+  position: fixed; top: calc(var(--dt-topbar-h) + var(--dt-gap)); left: var(--dt-gap); z-index: 10;
+  width: 280px; border-radius: 12px; padding: 9px 11px;
+  font: 10.5px/1.55 var(--dt-mono); color: var(--dim);
+}
+.hint[hidden] { display: none; }
+.hint code { color: var(--accent); }
+
+.inspect {
+  position: absolute; bottom: 32px; left: var(--dt-gap); z-index: 10;
+  width: 280px; max-height: 40vh; overflow-y: auto;
+  border-radius: 14px; padding: 11px 13px 12px;
+}
+.inspect[hidden] { display: none; }
+.inspect__title { font-size: 13px; font-weight: 600; margin-bottom: 9px; padding: 0 22px 8px 0; border-bottom: 1px solid var(--line); } /* right padding: room for the × */
+.inspect__close {
+  position: absolute; top: 8px; right: 9px;
+  border: none; background: none; font-size: 18px; line-height: 1; cursor: pointer; color: var(--dim); padding: 0 2px;
+}
+.inspect__close:hover { color: var(--ink); }
+.inspect__table { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: 11.5px; }
+.inspect__table dt { color: var(--dim); font: 10.5px var(--dt-mono); white-space: nowrap; }
+.inspect__table dd { margin: 0; font: 600 10.5px var(--dt-mono); color: var(--ink); word-break: break-word; min-width: 0; }
+
+/* Right-hand map button column. */
+#mapControls {
+  position: fixed; top: calc(var(--dt-topbar-h) + var(--dt-gap)); right: var(--dt-gap); z-index: 12;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.map-ctrl-btn {
+  width: 40px; height: 40px; border-radius: 50%; padding: 0;
+  display: grid; place-content: center; cursor: pointer;
+  font: 600 16px/1 var(--dt-sans);
+  transition: border-color 0.12s, transform 0.12s;
+}
+.map-ctrl-btn:hover { border-color: var(--line2); transform: translateY(-1px); }
+.map-ctrl-btn:active { transform: none; background: var(--panel2); }
+.map-ctrl-btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.map-ctrl-btn svg { width: 18px; height: 18px; }
+#btnCompass { position: relative; }
+#btnCompass svg { width: 34px; height: 34px; transition: none; }
+#compassNeedle .needle-n { fill: var(--danger); }
+#compassNeedle .needle-s { fill: var(--dim); }
+
+/* One-time "zoom in to see the buildings" note (ZoomHint.js), beside the
+   zoom-in button it points at -- its `top` is set to that button's middle. */
+.zoom-hint {
+  position: absolute; right: calc(100% + 12px); transform: translateY(-50%);
+  display: flex; align-items: center; gap: 8px;
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  border-radius: 10px; padding: 7px 8px 7px 12px;
+  font: 600 12.5px var(--dt-sans); white-space: nowrap;
+}
+.zoom-hint::after { /* the pointer towards the button */
+  content: ''; position: absolute; left: 100%; top: 50%; transform: translateY(-50%);
+  border: 6px solid transparent; border-left-color: color-mix(in srgb, var(--accent) 55%, var(--panel));
+}
+.zoom-hint__close {
+  border: none; background: none; font-size: 17px; line-height: 1; cursor: pointer; color: var(--dim); padding: 0 2px;
+}
+.zoom-hint__close:hover { color: var(--ink); }
+
+/* Search sits just left of the button column. */
+.search-panel {
+  position: fixed; top: calc(var(--dt-topbar-h) + var(--dt-gap)); right: calc(var(--dt-gap) + 52px); z-index: 13;
+  width: 280px; border-radius: 12px; overflow: hidden;
+}
+.search-panel[hidden] { display: none; }
+.search-input {
+  width: 100%; border: none; outline: none; background: transparent;
+  padding: 10px 12px; font: 500 13px var(--dt-sans); color: var(--ink);
+}
+.search-input::placeholder { color: var(--dim); }
+.search-results { max-height: 260px; overflow-y: auto; }
+.search-results:not(:empty) { border-top: 1px solid var(--line); }
+.search-result-item {
+  padding: 8px 12px; cursor: pointer;
+  font: 500 12.5px var(--dt-sans); color: var(--ink);
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.search-result-item:hover, .search-result-item.active { background: var(--panel2); }
+.search-result-type {
+  font: 600 10px var(--dt-sans); color: var(--dim);
+  text-transform: uppercase; letter-spacing: 0.03em; flex-shrink: 0;
+}
+
+/* Bottom-centre mouse-control hint strip. pointer-events:none so it never blocks a drag. */
+#controlsHint {
+  position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%);
+  z-index: 12; display: flex; align-items: center; gap: 13px;
+  border-radius: 10px; padding: 7px 14px;
+  font: 500 12px var(--dt-sans); white-space: nowrap;
+  user-select: none; pointer-events: none;
+}
+#controlsHint .k {
+  font: 600 10px var(--dt-mono); color: var(--dim);
+  text-transform: uppercase; letter-spacing: 0.03em; margin-right: 5px;
+}
+#controlsHint .sep { width: 1px; height: 13px; background: var(--line2); }
+/* On a window too narrow for both, the strip gives way to the inspect card
+   (bottom-left) while that is open -- they would overlap below ~1050 px. */
+@media (max-width: 1060px) { body:has(#inspect:not([hidden])) #controlsHint { display: none; } }
+@media (max-width: 520px) { #controlsHint { display: none; } }
+
+/* Welcome-back banner + admin bar share the top-centre slot (mutually
+   exclusive modes, never shown together). The width leaves the button
+   column on the right, and the same space on the left, clear. */
+.welcome-back-banner, .admin-bar {
+  /* Centred with auto margins, not left:50% + translate: that would cap the
+     width at half the window and wrap the text on a narrow one. */
+  position: fixed; top: calc(var(--dt-topbar-h) + var(--dt-gap)); left: 0; right: 0; margin: 0 auto;
+  z-index: 14; width: fit-content; max-width: min(620px, calc(100vw - 2 * (var(--dt-gap) + 52px)));
+  border-radius: 12px; padding: 10px 14px;
+  display: flex; align-items: center; gap: 12px; font: 500 13px var(--dt-sans);
+}
+.welcome-back-banner[hidden] { display: none; }
+.welcome-back-banner__actions { display: flex; gap: 10px; margin-left: auto; flex-shrink: 0; }
+.welcome-back-banner__btn { font: 600 12px var(--dt-sans); color: var(--accent); text-decoration: none; white-space: nowrap; }
+.welcome-back-banner__btn:hover { text-decoration: underline; }
+.welcome-back-banner__close, .coverage-panel__close {
+  border: none; background: none; font-size: 18px; line-height: 1; cursor: pointer; color: var(--dim); padding: 0 2px; flex-shrink: 0;
+}
+.welcome-back-banner__close:hover, .coverage-panel__close:hover { color: var(--ink); }
+
+/* Admin bar (AdminBar.js): which city an admin has open, and the ways out of it. */
+.admin-bar__label { font: 600 10px var(--dt-sans); text-transform: uppercase; letter-spacing: 0.04em; color: var(--dim); flex: none; }
+.admin-bar strong { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.admin-bar__cityid { font: 11px var(--dt-mono); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.admin-bar__link { font: 600 12px var(--dt-sans); color: var(--accent); text-decoration: none; white-space: nowrap; flex: none; }
+.admin-bar__link:hover { text-decoration: underline; }
+
+/* "What's on this map" (CoverageView.js) -- toggled by #btnCoverage / #coverageBadge, floats over the live city. */
+.coverage-panel {
+  position: fixed; top: calc(var(--dt-topbar-h) + var(--dt-gap)); left: var(--dt-gap); z-index: 13;
+  width: 320px; max-height: calc(100vh - var(--dt-topbar-h) - 2 * var(--dt-gap)); overflow-y: auto; border-radius: 14px;
+}
+.coverage-panel[hidden] { display: none; }
+.coverage-panel__head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 13px 10px; font: 600 12px var(--dt-sans);
+  border-bottom: 1px solid var(--line);
+}
+.coverage-panel__row { cursor: default; padding: 6px 13px; }
+.coverage-panel__row:hover { background: none; }
+.coverage-panel__status { font: 500 12px var(--dt-sans); color: var(--dim); text-align: right; }
+.coverage-panel__status.is-missing { color: var(--danger); }
+.coverage-panel__status.is-degraded { color: var(--warn, #d29922); }
+/* The uploader's way to add what's missing (CoverageView.js, addFilesEl). */
+.coverage-panel__add { border-top: 1px solid var(--line); margin-top: 4px; padding: 10px 13px 12px; }
+.coverage-panel__add p { margin: 0 0 8px; font: 12px/1.45 var(--dt-sans); color: var(--dim); }
+.coverage-panel__add-btn { display: inline-block; padding: 6px 12px; font-size: 12px; text-decoration: none; }
+.coverage-panel__details { border-top: 1px solid var(--line); margin-top: 4px; padding-bottom: 4px; }
+.coverage-panel__details summary { cursor: pointer; padding: 8px 13px; font: 600 12px var(--dt-sans); color: var(--dim); }
+.coverage-panel__details summary:hover { color: var(--ink); }
+.coverage-panel__details .coverage-panel__row { font-size: 12px; }
+/* Only once it can no longer sit beside the button column. */
+@media (max-width: 420px) { .coverage-panel { width: calc(100% - 2 * var(--dt-gap)); } }
+
+/* Share panel (ShareView.js) -- same slot as search, just left of the button column. */
+.share-panel {
+  position: fixed; top: calc(var(--dt-topbar-h) + var(--dt-gap)); right: calc(var(--dt-gap) + 52px); z-index: 13;
+  width: 340px; max-height: calc(100vh - var(--dt-topbar-h) - 2 * var(--dt-gap)); overflow-y: auto; border-radius: 14px;
+  background: var(--panel); border: 1px solid var(--line); color: var(--ink);
+  box-shadow: var(--dt-shadow); backdrop-filter: blur(8px);
+}
+.share-panel__body { padding: 11px 13px 13px; display: flex; flex-direction: column; gap: 7px; }
+.share-panel__label { font: 600 10px var(--dt-sans); text-transform: uppercase; letter-spacing: 0.04em; color: var(--dim); }
+.share-panel__label:not(:first-child) { margin-top: 8px; }
+.share-panel__row { display: flex; gap: 6px; align-items: center; }
+.share-panel__row--end { justify-content: space-between; }
+.share-panel__field {
+  flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--panel2); color: var(--ink);
+  padding: 6px 8px; font: 11.5px var(--dt-mono);
+}
+.share-panel__code { resize: vertical; line-height: 1.45; word-break: break-all; }
+.share-panel__copy {
+  flex: none; border: 1px solid var(--line2); border-radius: 8px; background: var(--panel2); color: var(--ink);
+  padding: 6px 11px; font: 600 12px var(--dt-sans); cursor: pointer; white-space: nowrap;
+}
+.share-panel__copy:hover { border-color: var(--accent); color: var(--accent); }
+.share-panel__check { display: flex; align-items: center; gap: 6px; font-size: 12.5px; cursor: pointer; }
+.share-panel__note { margin: 0; font-size: 12px; line-height: 1.45; color: var(--dim); }
+.share-panel__doc { font: 600 12px var(--dt-sans); color: var(--accent); text-decoration: none; }
+.share-panel__doc:hover { text-decoration: underline; }
+@media (max-width: 520px) { .share-panel { left: var(--dt-gap); right: calc(var(--dt-gap) + 52px); width: auto; } }
+
+/* Embed mode (?embed=1, main.js): no top bar -- the host page has its own
+   chrome -- so every card offset by --dt-topbar-h moves up with it. */
+body.is-embed { --dt-topbar-h: 0px; }
+body.is-embed .topbar, body.is-embed #welcomeBackBanner { display: none; }
+/* The smallest frame everything fits in is 480 x 360 (public/EMBED.md, and
+   the embed code ShareView.js hands out carries it as a minimum): six
+   buttons down the right above the "Open full view" link, and every card
+   clear of both. The mouse-controls strip shares the bottom edge with that
+   link, so it only shows in a frame wide enough for the two. */
+@media (max-width: 720px) { body.is-embed #controlsHint { display: none; } }
+.embed-open-full {
+  position: fixed; right: var(--dt-gap); bottom: var(--dt-gap); z-index: 12;
+  border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px;
+  background: var(--panel); color: var(--ink); box-shadow: var(--dt-shadow); backdrop-filter: blur(8px);
+  font: 600 11.5px var(--dt-sans); text-decoration: none;
+}
+.embed-open-full:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ===================================================================
+   Floating 3D map labels -- follow the SCENE's day/night, not the UI theme.
+   =================================================================== */
+.label3d {
+  position: absolute;
+  pointer-events: none; white-space: nowrap;
+  font: 10.5px var(--dt-mono); color: var(--label-ink);
+  background: var(--label-bg); border: 1px solid var(--label-line);
+  border-radius: 14px; padding: 5px 11px;
+  transform: translate(-50%, -170%);
+  animation: label-float 2.6s ease-in-out infinite;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.35);
+}
+.label3d::after {
+  content: '';
+  position: absolute;
+  left: 50%; bottom: -6px;
+  transform: translateX(-50%);
+  width: 0; height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 7px solid var(--label-line);
+}
+
+.label3d.building-name { border-color: #9fd1ff; color: #9fd1ff; }
+.label3d.building-name::after { border-top-color: #9fd1ff; }
+
+/* Day mode uses light label pills with dark text; night mode (body.night-mode) uses the dark pills. Toggled by PaletteController.applyPalette(). */
+body:not(.night-mode) .label3d {
+  background: rgba(255,255,255,0.92);
+  border-color: rgba(0,0,0,0.16);
+  color: #23262b;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.14);
+}
+body:not(.night-mode) .label3d::after { border-top-color: rgba(0,0,0,0.16); }
+body:not(.night-mode) .label3d.building-name { border-color: #2f6ea8; color: #2f6ea8; }
+body:not(.night-mode) .label3d.building-name::after { border-top-color: #2f6ea8; }
+
+.label3d.search-pin-label {
+  font-weight: 700;
+  border-color: #f4703a; color: #f4703a;
+}
+.label3d.search-pin-label::after { border-top-color: #f4703a; }
+
+/* Locality/orientation/metro labels: plain ground text, no pill. */
+.label3d.flat-label {
+  background: transparent; border: none; box-shadow: none;
+  padding: 0; border-radius: 0; animation: none;
+  color: #d6e6cf; font-weight: 600;
+  font-size: 14px;
+  text-shadow:
+    0 0 2px #10140f, 0 0 2px #10140f, 0 0 2px #10140f,
+    0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.55);
+  transform: translate(-50%, -50%);
+}
+.label3d.flat-label::after { display: none; }
+body:not(.night-mode) .label3d.flat-label {
+  background: transparent; border: none; box-shadow: none;
+  color: #2c4527;
+  text-shadow:
+    0 0 2px #fff, 0 0 2px #fff, 0 0 2px #fff,
+    0 1px 3px rgba(255,255,255,0.95), 0 0 8px rgba(255,255,255,0.7);
+}
+@keyframes label-float {
+  0%, 100% { transform: translate(-50%, -170%) translateY(0); }
+  50%      { transform: translate(-50%, -170%) translateY(-5px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .label3d { animation: none; }
+}
+
+/* ===================================================================
+   Full-screen states: loading + fatal (sit under the top bar).
+   =================================================================== */
+#fatal {
+  position: absolute; inset: 0; z-index: 20; display: none; place-content: center;
+  background: var(--bg); color: var(--ink); padding: 40px; text-align: center;
+}
+#fatal.is-shown { display: grid; }
+#fatal > div { max-width: 460px; }
+#fatal h1 { font-size: 20px; font-weight: 600; margin: 0 0 8px; }
+#fatal p { font: 14px/1.6 var(--dt-sans); color: var(--dim); margin: 0; overflow-wrap: anywhere; }
+#fatal .app-page__actions { justify-content: center; }
+
+#loading {
+  position: absolute; inset: 0; z-index: 15; display: grid; place-content: center; justify-items: center;
+  background: var(--bg); color: var(--dim); font: 12px var(--dt-mono);
+}
+#loading.is-hidden { display: none; }
+#loadingText { margin-bottom: 14px; }
+.loading-bar-track {
+  position: relative; width: 220px; height: 6px; border-radius: 999px;
+  background: var(--panel2); border: 1px solid var(--line); overflow: hidden;
+}
+.loading-bar-fill {
+  position: absolute; top: 0; left: 0; height: 100%; width: 0%;
+  border-radius: 999px; background: var(--accent);
+  transition: width 0.25s ease-out;
+}
+.loading-bar-fill.is-indeterminate {
+  width: 35%;
+  animation: loadingIndeterminate 1.1s ease-in-out infinite;
+}
+@keyframes loadingIndeterminate {
+  0%   { left: -35%; }
+  100% { left: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* ===================================================================
+   "Chrome" full-page views: CityPickerView, UploadView (including its
+   Review & build progress page), AdminLogView. Start below the top bar
+   so it stays usable on them.
+   =================================================================== */
+.app-page {
+  position: fixed; top: var(--dt-topbar-h); left: 0; right: 0; bottom: 0; z-index: 30;
+  overflow-y: auto; background: var(--bg);
+  /* Less air around the card on a short window (a 13-inch laptop), where it is better spent on the card: 40px from 900px tall, down to 12px. */
+  display: flex; justify-content: center; padding: clamp(12px, calc(12vh - 68px), 40px) 16px;
+}
+.app-page[hidden] { display: none; }
+.app-page__card {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+  padding: 28px 30px; max-width: 560px; width: 100%; height: fit-content;
+  color: var(--ink); box-shadow: var(--dt-shadow);
+}
+.app-page__card h1 { font-size: 22px; font-weight: 600; margin: 0 0 8px; }
+.app-page__card p { font: 14px/1.6 var(--dt-sans); color: var(--dim); margin: 0 0 6px; }
+.app-page__actions { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+.app-page__btn {
+  display: inline-block; border: 1px solid transparent; border-radius: 9px; padding: 9px 16px;
+  font: 600 13px var(--dt-sans); cursor: pointer; text-decoration: none; text-align: center;
+}
+.app-page__btn--primary { background: var(--accent); color: #fff; }
+.app-page__btn--primary:hover { filter: brightness(1.08); }
+.app-page__btn--ghost { background: var(--panel2); border-color: var(--line); color: var(--ink); }
+.app-page__btn--ghost:hover { border-color: var(--line2); }
+.app-page__btn:disabled { opacity: 0.55; cursor: default; filter: none; }
+.app-page__btn[hidden] { display: none; } /* an explicit `display` above would otherwise beat the UA [hidden] rule */
+.app-page__back-link {
+  display: inline-block; margin-top: 20px;
+  border: 1px solid var(--line); background: var(--panel2); color: var(--ink);
+  border-radius: 8px; padding: 6px 12px; font-size: 13px; text-decoration: none;
+}
+.app-page__back-link:hover { border-color: var(--line2); }
+
+/* Shared form controls (upload wizard). */
+.upload-view__field input, .upload-view__field select, .upload-view__bbox-fields input {
+  display: block; width: 100%;
+  background: var(--panel2); border: 1px solid var(--line); color: var(--ink);
+  border-radius: 8px;
+}
+.upload-view__field input:focus, .upload-view__field select:focus, .upload-view__bbox-fields input:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+/* A problem with one field (UploadView.js, showFieldErrors): the control is
+   outlined and the message sits right under it, not at the foot of the form. */
+.app-page__card .field-error { margin: 5px 0 0; font: 500 12px/1.45 var(--dt-sans); color: var(--danger); } /* two classes to outrank `.app-page__card p` */
+.upload-view input.is-invalid, .upload-view select.is-invalid { border-color: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 18%, transparent); }
+.upload-view__map-wrap.is-invalid .upload-view__map,
+.file-drop.is-invalid .file-drop__zone { border-color: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 18%, transparent); }
+.upload-view__bbox-fields.is-invalid input { border-color: var(--danger); }
+
+/* ===================================================================
+   "My cities" -- the AirawatOS desktop: a tile per city.
+   =================================================================== */
+.desk { width: 100%; max-width: 1000px; height: fit-content; padding: 0 8px; }
+.hi { font-size: 22px; font-weight: 600; margin: 6px 0 2px; }
+.sub { color: var(--dim); margin-bottom: 26px; }
+.desk__note { color: var(--dim); font-size: 13px; margin: 22px 0 0; max-width: 560px; }
+.desk__note[hidden] { display: none; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
+.tile {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 16px; position: relative;
+  padding: 20px 16px; text-align: center;
+  transition: transform 0.12s, border-color 0.12s, box-shadow 0.12s;
+}
+.tile:hover { transform: translateY(-3px); border-color: var(--line2); box-shadow: 0 12px 34px rgba(0, 0, 0, 0.25); }
+.tile:has(.tile__link:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* The whole tile is one real link (keyboard + middle-click work); its ::after
+   stretches the hit area over the card, and .rm/.pin sit above it. */
+.tile__link { display: block; color: inherit; text-decoration: none; outline: none; }
+.tile__link::after { content: ''; position: absolute; inset: 0; border-radius: inherit; }
+.tile--add { border-style: dashed; background: transparent; }
+.ico { font-size: 34px; line-height: 1; display: block; margin-bottom: 12px; }
+.nm { font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+/* How the city is doing, under its name (CityPickerView.js). */
+.tile__status { font-size: 12px; margin-top: 4px; color: var(--dim); }
+.tile__status--good { color: var(--good); }
+.tile__status--busy { color: var(--accent); }
+.tile__status--warn { color: var(--warn, #d29922); }
+.tile__status--bad { color: var(--danger); }
+.tile--attention { border-color: color-mix(in srgb, var(--warn, #d29922) 55%, transparent); }
+.tile__flag {
+  display: inline-block; margin-top: 8px; border-radius: 999px; padding: 2px 9px;
+  border: 1px solid color-mix(in srgb, var(--warn, #d29922) 45%, transparent);
+  background: color-mix(in srgb, var(--warn, #d29922) 14%, transparent);
+  color: var(--warn, #d29922); font: 600 11px var(--dt-sans); white-space: nowrap;
+}
+.rm {
+  position: absolute; top: 8px; right: 8px; z-index: 1; width: 20px; height: 20px; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--panel2); color: var(--dim);
+  font-size: 12px; line-height: 18px; text-align: center; padding: 0; cursor: pointer;
+  opacity: 0; transition: opacity 0.12s;
+}
+.tile:hover .rm, .tile:focus-within .rm { opacity: 1; }
+.rm:hover, .rm:focus-visible { border-color: var(--danger); color: var(--danger); }
+.pin { position: absolute; top: 8px; right: 8px; z-index: 1; font-size: 11px; color: var(--dim); opacity: 0.7; cursor: default; }
+/* "Add or change files" on a live city's tile: top-left, opposite the ✕, shown the same way. */
+.tile__edit {
+  position: absolute; top: 8px; left: 8px; z-index: 1; width: 20px; height: 20px; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--panel2); color: var(--dim);
+  font-size: 11px; line-height: 18px; text-align: center; text-decoration: none;
+  opacity: 0; transition: opacity 0.12s;
+}
+.tile:hover .tile__edit, .tile:focus-within .tile__edit { opacity: 1; }
+.tile__edit:hover, .tile__edit:focus-visible { border-color: var(--accent); color: var(--accent); }
+
+/* ===================================================================
+   Upload wizard
+   =================================================================== */
+/* The card, and the map in it (below), grow with the window: drawing a city's
+   area on a 27-inch monitor shouldn't happen in a laptop-sized box, and on a
+   13-inch laptop the whole of step 1 should fit without scrolling. */
+.upload-view { max-width: clamp(620px, 46vw, 780px); }
+.upload-view__steps { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 18px; border-bottom: 1px solid var(--line); padding-bottom: 14px; }
+.upload-view__step {
+  font: 600 11px var(--dt-sans); color: var(--dim); text-transform: uppercase; letter-spacing: 0.03em;
+  border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px;
+}
+.upload-view__step.is-done { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, transparent); }
+.upload-view__step.is-done::before { content: '✓ '; }
+.upload-view__step.is-active {
+  color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.upload-view__panel[hidden] { display: none; }
+.upload-view__field { display: block; font: 600 12px var(--dt-sans); color: var(--dim); margin-bottom: 12px; }
+.upload-view__field[hidden] { display: none; }
+.upload-view__field input, .upload-view__field select { margin-top: 5px; padding: 8px 10px; font: 13px var(--dt-sans); }
+.upload-view__field select:disabled { opacity: 0.6; }
+/* The height property sits inside the buildings slot, set off from the file above it. */
+.upload-view__field--height { margin: 14px 0 0; }
+/* One line under a setting saying what it does to the 3D city (step 3's generation settings). */
+.upload-view__field-note { display: block; margin-top: 4px; font: 400 11.5px/1.45 var(--dt-sans); color: var(--dim); }
+/* Place search above the map (UploadView.js). */
+.place-search { display: flex; gap: 8px; margin-bottom: 8px; }
+.place-search input {
+  flex: 1; min-width: 0; background: var(--panel2); border: 1px solid var(--line); color: var(--ink);
+  border-radius: 8px; padding: 8px 10px; font: 13px var(--dt-sans);
+}
+.place-search input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }
+.place-search .app-page__btn { padding: 8px 14px; }
+.place-search__results {
+  border: 1px solid var(--line); border-radius: 8px; margin: -2px 0 8px; overflow: hidden;
+  max-height: 180px; overflow-y: auto;
+}
+.place-search__results[hidden] { display: none; }
+.place-search__results button {
+  display: block; width: 100%; text-align: left; border: 0; border-top: 1px solid var(--line);
+  background: none; color: var(--ink); padding: 7px 10px; font: 12.5px var(--dt-sans); cursor: pointer;
+}
+.place-search__results button:first-child { border-top: 0; }
+.place-search__results button:hover, .place-search__results button[aria-current="true"] { background: var(--panel2); }
+.place-search__results small { color: var(--dim); }
+.place-search__results .place-search__msg { padding: 7px 10px; color: var(--dim); font-size: 12.5px; }
+
+/* The map pans by default; "Draw area" switches a drag into drawing the box. */
+.upload-view__map-wrap { position: relative; margin-bottom: 8px; }
+.upload-view__map { height: clamp(250px, calc(100vh - 540px), 540px); border-radius: 10px; overflow: hidden; border: 1px solid var(--line); } /* 540px: what the top bar and the rest of step 1 take, so from a 900 px-tall window up the step fits without scrolling */
+.upload-view__map.is-drawing, .upload-view__map.is-drawing .leaflet-interactive { cursor: crosshair; }
+.draw-toggle {
+  position: absolute; top: 10px; right: 10px; z-index: 500; /* above Leaflet's panes (400) */
+  background: var(--panel); color: var(--ink); border: 1px solid var(--line2); border-radius: 8px;
+  padding: 6px 11px; font: 600 12.5px var(--dt-sans); cursor: pointer; box-shadow: var(--dt-shadow);
+}
+.draw-toggle:hover { border-color: var(--accent); }
+.draw-toggle[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* Step 2's optional files (index.html, UploadView.js buildSlots): one section, a compact row per file;
+   the municipal layers shown, replacements for OpenStreetMap's own layers folded away. */
+.optional-files { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 14px; }
+.optional-files__title { font-size: 13px; font-weight: 600; margin: 0 0 4px; }
+.optional-files__group { font: 600 11px var(--dt-sans); letter-spacing: 0.04em; text-transform: uppercase; color: var(--dim); margin: 14px 0 0; }
+.optional-files__more { margin-top: 14px; border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; }
+.optional-files__more[open] { padding-bottom: 12px; }
+.optional-files__more summary { cursor: pointer; font-size: 12.5px; font-weight: 600; }
+.optional-files__more summary:hover { color: var(--accent); }
+.optional-files__more > .upload-view__hint:first-of-type { margin-top: 8px; }
+.file-row { display: grid; grid-template-columns: 1fr minmax(180px, 220px); align-items: center; gap: 2px 14px; padding: 8px 0; border-top: 1px solid var(--line); }
+.file-row:first-child { border-top: none; }
+.file-row__label { display: block; font: 600 12.5px var(--dt-sans); color: var(--ink); }
+.file-row__note { display: block; font: 11.5px var(--dt-sans); color: var(--dim); }
+.file-row__note code { font: 11px var(--dt-mono); color: var(--ink); background: var(--panel2); border-radius: 4px; padding: 0 4px; }
+.file-row .file-drop { margin-top: 0; min-width: 0; }
+.file-row__status { grid-column: 1 / -1; }
+.file-row__status:empty { display: none; }
+@media (max-width: 560px) { .file-row { grid-template-columns: 1fr; } }
+.osm-own__tag { font-weight: 400; color: var(--dim); font-size: 11.5px; margin-left: 4px; }
+.osm-own__turbo { margin: 2px 0 6px; font-size: 12.5px; padding: 7px 12px; }
+.osm-own__turbo[aria-disabled="true"] { opacity: 0.5; pointer-events: none; }
+.slot-note { display: block; font: 11.5px var(--dt-sans); color: var(--dim); margin: -2px 0 4px; }
+.slot-note code { font: 11px var(--dt-mono); color: var(--ink); background: var(--panel2); border-radius: 4px; padding: 0 4px; }
+.slot-clear {
+  border: 0; background: none; padding: 0; margin-left: 8px; cursor: pointer;
+  font: 500 11px var(--dt-sans); color: var(--danger);
+}
+.slot-clear:hover { text-decoration: underline; }
+
+/* Step 3: review summary, settings, and live build progress (BuildStatus.js). */
+.review-summary { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0 0 16px; font-size: 13px; }
+.review-summary dt { color: var(--dim); }
+.review-summary dd { margin: 0; overflow-wrap: anywhere; }
+.review-summary .is-missing { color: var(--warn, #d29922); }
+/* "Advanced settings": folded away by default, like step 2's .optional-files__more. */
+.review-settings { border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; margin: 0; }
+.review-settings[open] { padding-bottom: 2px; }
+.review-settings summary { cursor: pointer; font-size: 13px; font-weight: 600; }
+.review-settings summary:hover { color: var(--accent); }
+.review-settings > .upload-view__hint { margin-top: 8px; }
+
+.build-status { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 16px; }
+.build-status[hidden] { display: none; }
+.build-status--top { margin: 0 0 18px; border-top: 0; padding-top: 0; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+.review-settings[hidden] { display: none; }
+.build-status__title { font-size: 15px; font-weight: 600; margin: 0 0 4px; }
+.build-status__note { color: var(--dim); font-size: 12.5px; margin: 0 0 14px; }
+.build-steps { list-style: none; margin: 0 0 14px; padding: 0; }
+.build-steps li { position: relative; display: flex; gap: 10px; padding: 0 0 12px; color: var(--dim); font-size: 13px; }
+.build-steps li::before { /* the connecting line between step dots */
+  content: ''; position: absolute; left: 8px; top: 18px; bottom: 0; width: 2px; background: var(--line);
+}
+.build-steps li:last-child::before { display: none; }
+.build-steps .dot {
+  flex: none; width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line2);
+  display: grid; place-content: center; font-size: 10px; line-height: 1; background: var(--panel);
+}
+.build-steps .is-done { color: var(--ink); }
+.build-steps .is-done .dot { border-color: var(--good); background: var(--good); color: #fff; }
+.build-steps .is-active { color: var(--ink); font-weight: 600; }
+.build-steps .is-active .dot { border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 20%, transparent); animation: build-pulse 1.4s ease-in-out infinite; }
+.build-steps .is-warn { color: var(--ink); }
+.build-steps .is-warn .dot { border-color: var(--warn, #d29922); background: var(--warn, #d29922); color: #fff; }
+.build-steps .is-error { color: var(--danger); font-weight: 600; }
+.build-steps .is-error .dot { border-color: var(--danger); background: var(--danger); color: #fff; }
+.build-steps small { display: block; font-weight: 400; color: var(--dim); }
+@keyframes build-pulse { 50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--accent) 8%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .build-steps .is-active .dot { animation: none; } }
+.build-layers { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0 0 14px; font-size: 12.5px; }
+.build-layers dt { color: var(--ink); }
+.build-layers dd { margin: 0; color: var(--dim); }
+.build-layers dd.is-ok { color: var(--good); }
+.build-layers dd.is-bad { color: var(--warn, #d29922); }
+.build-layers__why { margin: -6px 0 14px; font-size: 12.5px; color: var(--dim); }
+.build-status__link { font-size: 12px; color: var(--dim); overflow-wrap: anywhere; }
+.build-status__link a { color: var(--accent); }
+.app-page__card .upload-view__hint { font: 12px/1.5 var(--dt-sans); color: var(--dim); margin: 0 0 10px; } /* two classes to outrank `.app-page__card p` */
+.upload-view__bbox-fields { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 4px; }
+.upload-view__bbox-fields label { font: 600 10px var(--dt-sans); color: var(--dim); text-transform: uppercase; }
+.upload-view__bbox-fields input { margin-top: 3px; border-radius: 6px; padding: 6px 7px; font: 12px var(--dt-mono); }
+.upload-view__slot { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
+.upload-view__panel > .upload-view__slot:first-child { border-top: none; padding-top: 0; margin-top: 0; } /* step 2 opens with the buildings */
+.upload-view__slot-label { display: block; font: 600 12px var(--dt-sans); color: var(--ink); margin-bottom: 4px; }
+/* Buildings: Google Open Buildings (downloaded by the server) or the uploader's own file. */
+.buildings-source { display: grid; gap: 8px; margin: 4px 0 10px; }
+.buildings-source__option { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel2); font-size: 13px; cursor: pointer; }
+.buildings-source__option:hover { border-color: var(--line2); }
+.buildings-source__option:has(input:checked) { border-color: var(--accent); }
+.buildings-source__option input { margin: 3px 0 0; accent-color: var(--accent); flex: none; }
+.buildings-source__option .slot-note { margin: 2px 0 0; }
+.upload-view__slot > .upload-view__hint-link { display: inline-block; margin-top: 6px; } /* its own line, clear of whatever follows */
+
+/* File drop zones (FileDrop.js): click or drop; once attached, the file's name and size. */
+.file-drop { position: relative; margin-top: 6px; }
+.file-drop__input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; } /* still focusable: the zone below is its label */
+.file-drop__zone {
+  display: flex; align-items: center; gap: 8px; min-height: 42px;
+  border: 1px dashed var(--line2); border-radius: 9px; background: var(--panel2);
+  padding: 8px 12px; font: 12.5px var(--dt-sans); color: var(--dim); cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+.file-drop__zone:hover, .file-drop.is-over .file-drop__zone { border-color: var(--accent); }
+.file-drop.is-over .file-drop__zone { background: color-mix(in srgb, var(--accent) 12%, var(--panel2)); }
+.file-drop__input:focus-visible + .file-drop__zone { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }
+.file-drop__prompt b { color: var(--ink); font-weight: 600; }
+.file-drop.has-file .file-drop__zone { border-style: solid; border-color: color-mix(in srgb, var(--good) 45%, transparent); padding-right: 36px; }
+.file-drop__file { display: flex; align-items: baseline; gap: 10px; min-width: 0; flex: 1; }
+.file-drop__name { color: var(--ink); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.file-drop__size { flex: none; font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.file-drop__clear {
+  position: absolute; top: 50%; right: 8px; transform: translateY(-50%);
+  width: 22px; height: 22px; border-radius: 50%; padding: 0;
+  border: 1px solid var(--line); background: var(--panel); color: var(--dim);
+  font-size: 14px; line-height: 1; cursor: pointer;
+}
+.file-drop__clear:hover, .file-drop__clear:focus-visible { border-color: var(--danger); color: var(--danger); }
+.file-drop__problem { display: block; margin-top: 5px; font: 500 12px var(--dt-sans); color: var(--danger); }
+/* The small one, in a row of optional files. */
+.file-drop--compact .file-drop__zone { min-height: 34px; padding: 6px 10px; font-size: 12px; border-radius: 8px; }
+.file-drop--compact.has-file .file-drop__zone { padding-right: 34px; }
+.file-drop--compact .file-drop__size { font-size: 11px; }
+.file-drop--compact .file-drop__clear { width: 20px; height: 20px; font-size: 13px; right: 7px; }
+
+.upload-view__hint-link {
+  font: 500 11.5px var(--dt-sans); color: var(--accent); text-decoration: none;
+  border: none; background: none; cursor: pointer; padding: 0; /* harmless on <a>, needed when reused on <button> (e.g. #btnDraftStartOver) */
+}
+.upload-view__hint-link:hover { text-decoration: underline; }
+.upload-view__draft-notice {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  border: 1px solid color-mix(in srgb, var(--warn, #d29922) 40%, transparent);
+  background: color-mix(in srgb, var(--warn, #d29922) 12%, transparent);
+  border-radius: 8px; padding: 8px 11px; margin-bottom: 14px;
+  font: 500 12px var(--dt-sans); color: var(--ink);
+}
+.upload-view__draft-notice[hidden] { display: none; }
+.upload-view__slot-status { display: block; margin-top: 4px; font: 11px var(--dt-mono); color: var(--good); }
+.upload-view__error {
+  margin-top: 14px; padding: 9px 11px; border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger); font: 500 12.5px var(--dt-sans);
+}
+.upload-view__error[hidden] { display: none; }
+.upload-view__nav { display: flex; gap: 10px; margin-top: 18px; justify-content: flex-end; }
+
+/* File upload progress (UploadView.js) and in-build progress (BuildStatus.js). */
+.upload-progress { margin-top: 16px; }
+.upload-progress[hidden] { display: none; }
+.upload-progress__row { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; margin-bottom: 6px; }
+.upload-progress__row span:last-child { color: var(--dim); font-variant-numeric: tabular-nums; }
+.upload-progress .loading-bar-track, .build-progress .loading-bar-track { width: 100%; }
+.upload-progress__note { font-size: 12px; color: var(--dim); margin: 8px 0 0; }
+/* BuildStatus.js builds these from <span>s (they sit inside a step's label), so they need `display: block` to have a width and height at all. */
+.build-progress { display: block; margin: 6px 0 2px; max-width: 360px; }
+.build-progress .loading-bar-track { display: block; height: 5px; }
+.build-progress__text { display: block; font-size: 12px; font-weight: 400; color: var(--dim); margin-top: 3px; font-variant-numeric: tabular-nums; }
+/* Estimated time left for the 3D build -- the one line an uploader actually waits on, so ink, not dim. */
+.build-steps li .build-eta { display: block; font-size: 12.5px; font-weight: 500; color: var(--ink); margin-top: 3px; font-variant-numeric: tabular-nums; }
+.build-eta__warn { font-weight: 400; color: var(--warn, #d29922); }
+
+/* Deleting a city (BuildStatus.js): a quiet button, then an explicit confirmation. */
+.build-status__danger { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.app-page__btn--danger { background: transparent; border-color: color-mix(in srgb, var(--danger) 50%, transparent); color: var(--danger); }
+.app-page__btn--danger:hover { background: color-mix(in srgb, var(--danger) 10%, transparent); }
+.app-page__btn--danger-solid { background: var(--danger); color: #fff; }
+.build-status__confirm { font-size: 13px; margin: 0 0 10px; }
+@media (max-width: 640px) { .upload-view__bbox-fields { grid-template-columns: repeat(2, 1fr); } }
+
+/* ===================================================================
+   Admin page (?admin=<token>, AdminCitiesView.js): every uploaded city.
+   =================================================================== */
+.admin-cities { max-width: 860px; }
+.admin-cities__filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0 14px; }
+.admin-cities__filter {
+  border: 1px solid var(--line); background: var(--panel2); color: var(--ink);
+  border-radius: 999px; padding: 4px 12px; font: 600 12px var(--dt-sans); cursor: pointer;
+}
+.admin-cities__filter:hover { border-color: var(--line2); }
+.admin-cities__filter[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.admin-cities__list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.app-page__card .admin-cities__message { margin: 8px 0; }
+.admin-city { border: 1px solid var(--line); background: var(--panel2); border-radius: 12px; padding: 12px 14px; }
+.admin-city__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.admin-city__name { font-size: 14px; overflow-wrap: anywhere; min-width: 0; }
+.admin-city__facts { margin-top: 3px; font: 11.5px/1.5 var(--dt-mono); color: var(--dim); overflow-wrap: anywhere; }
+.app-page__card .admin-city__note { margin: 8px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--ink); }
+.admin-city__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.admin-city__actions .app-page__btn { padding: 6px 12px; font-size: 12.5px; }
+.app-page__card .admin-city__confirm { flex-basis: 100%; margin: 0; font-size: 13px; line-height: 1.5; color: var(--ink); }
+
+/* A city's status as a small pill (admin page). */
+.status-pill {
+  flex: none; border-radius: 999px; padding: 2px 10px; white-space: nowrap;
+  font: 600 11px var(--dt-sans); color: var(--dim);
+  border: 1px solid var(--line2);
+}
+.status-pill--live { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, transparent); background: color-mix(in srgb, var(--good) 12%, transparent); }
+.status-pill--processing { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.status-pill--failed { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, transparent); background: color-mix(in srgb, var(--danger) 12%, transparent); }
+
+/* ===================================================================
+   Admin build-log viewer (?admin=<token>&city=<id>&logs=1)
+   =================================================================== */
+.admin-log-view { max-width: 720px; }
+.admin-log-view h1 { font-size: 18px; }
+.admin-log-view__job {
+  border: 1px solid var(--line); background: var(--panel2); border-radius: 10px; padding: 9px 12px;
+  margin-bottom: 10px;
+}
+.admin-log-view__job summary {
+  cursor: pointer; font: 600 12.5px var(--dt-sans); color: var(--ink);
+  list-style: revert;
+}
+.admin-log-view__log {
+  margin: 10px 0 0; padding: 10px 11px; border-radius: 8px;
+  background: var(--bg); border: 1px solid var(--line); color: var(--ink); font: 11.5px var(--dt-mono);
+  white-space: pre-wrap; word-break: break-word; max-height: 320px; overflow-y: auto;
+}

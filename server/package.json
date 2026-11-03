@@ -1,0 +1,20 @@
+{
+  "name": "digitwin-generator-server",
+  "version": "0.1.0",
+  "description": "Self-hosted backend for DigiTwin Generator's city-upload pipeline -- upload a dataset, we bake it into a viewable city.",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node --env-file=.env app.js",
+    "dev": "node --env-file=.env --watch app.js"
+  },
+  "dependencies": {
+    "@turf/turf": "^7.1.0",
+    "check-disk-space": "^3.4.0",
+    "express": "^4.19.2",
+    "multer": "^2.0.0",
+    "nanoid": "^5.0.7"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "digitwin-generator",
+  "version": "0.1.0",
+  "description": "A 3D digital-twin city viewer for the browser, with a self-hosted server that builds a city from uploaded data.",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "leaflet": "^1.9.4",
+    "three": "0.180.0"
+  },
+  "devDependencies": {
+    "jsdom": "^30.1.1",
+    "vite": "^8.3.2"
+  }
+}

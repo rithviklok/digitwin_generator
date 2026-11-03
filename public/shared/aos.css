@@ -1,0 +1,60 @@
+/* ===================================================================
+   DigiTwin-Generator's theme tokens, in the AirawatOS design language.
+   Written as a stand-in for AirawatOS's own /shared/aos.css; the real
+   file turned out not to be needed, and this look is the final one.
+   Served at /shared/aos.css (Vite serves public/ at the site root).
+
+   Defines what styles.css consumes: the theme tokens the AirawatOS
+   desktop shell uses (--bg --panel --panel2 --line --line2 --ink --dim
+   --accent --good --danger) plus --warn, which styles.css reads with a
+   fallback.
+
+   No data-theme (or data-theme="") = follow the OS's light/dark
+   setting; "dark" / "light" = forced.
+   =================================================================== */
+:root, :root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg:     #0e1116;
+  --panel:  rgba(22, 26, 33, 0.92);
+  --panel2: #1e242e;
+  --line:   rgba(255, 255, 255, 0.09);
+  --line2:  rgba(255, 255, 255, 0.20);
+  --ink:    #e6e9ee;
+  --dim:    #8b93a1;
+  --accent: #f4703a;
+  --good:   #3fb950;
+  --danger: #f85149;
+  --warn:   #d29922;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --bg:     #f3f4f6;
+    --panel:  rgba(255, 255, 255, 0.92);
+    --panel2: #eef0f3;
+    --line:   rgba(0, 0, 0, 0.09);
+    --line2:  rgba(0, 0, 0, 0.20);
+    --ink:    #1d2128;
+    --dim:    #5f6773;
+    --accent: #e0612b;
+    --good:   #1f883d;
+    --danger: #cf222e;
+    --warn:   #9a6700;
+  }
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg:     #f3f4f6;
+  --panel:  rgba(255, 255, 255, 0.92);
+  --panel2: #eef0f3;
+  --line:   rgba(0, 0, 0, 0.09);
+  --line2:  rgba(0, 0, 0, 0.20);
+  --ink:    #1d2128;
+  --dim:    #5f6773;
+  --accent: #e0612b;
+  --good:   #1f883d;
+  --danger: #cf222e;
+  --warn:   #9a6700;
+}
